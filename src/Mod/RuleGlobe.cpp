@@ -33,7 +33,7 @@ namespace OpenXcom
 /**
  * Creates a blank ruleset for globe contents.
  */
-RuleGlobe::RuleGlobe()
+RuleGlobe::RuleGlobe() : _hasStartingLonLat(false), _hasStartingZoom(false), _startingLon(0.0), _startingLat(0.0), _startingZoom(0)
 {
 }
 
@@ -137,6 +137,23 @@ void RuleGlobe::load(const YAML::YamlNodeReader& reader, Mod* mod)
 		Globe::OCEAN_COLOR = Palette::blockOffset(reader["oceanPalette"].readVal(Globe::OCEAN_COLOR));
 	}
 	reader.tryRead("oceanShading", Globe::OCEAN_SHADING);
+
+	// Optional new-game camera. Degrees, same sign convention as labelLon/labelLat
+	// (east positive, north negative). Converted to radians here.
+	if (reader["startingLon"] || reader["startingLat"])
+	{
+		double lonDeg = 0.0, latDeg = 0.0;
+		reader.tryRead("startingLon", lonDeg);
+		reader.tryRead("startingLat", latDeg);
+		_startingLon = Deg2Rad(lonDeg);
+		_startingLat = Deg2Rad(latDeg);
+		_hasStartingLonLat = true;
+	}
+	if (reader["startingZoom"])
+	{
+		reader.tryRead("startingZoom", _startingZoom);
+		_hasStartingZoom = true;
+	}
 }
 
 /**

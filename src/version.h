@@ -26,5 +26,5 @@
 #define OPENXCOM_VERSION_NUMBER 8,7,1,0
 
 #ifndef OPENXCOM_VERSION_GIT
-#define OPENXCOM_VERSION_GIT " (v2026-09-19)"
+#define OPENXCOM_VERSION_GIT " (v2026-09-19 + bronze-iron-camera)"
 #endif

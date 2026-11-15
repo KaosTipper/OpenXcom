@@ -1,0 +1,124 @@
+# 64-bit Windows OXCE build for the Bronze & Iron starting-camera patch.
+#
+# Upstream OpenXcom used to download the Windows SDL pack from
+# https://openxcom.org/download/dev/openxcom-deps-win-vc2017.zip during CI.
+# That URL sat behind Cloudflare and broke Actions, so the pack was vendored
+# into the tree (deps/include/SDL, deps/lib/Win32, deps/lib/x64). See
+# "Add Windows dependencies" (01276f231). This workflow uses that same
+# vendored pack, which nightly.test already builds the Win32 binary with.
+# If deps/lib/x64 is missing, it falls back to the official zip.
+
+name: Bronze-Iron Win64
+
+on:
+  push:
+    branches:
+      - bronze-iron
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  windows-x64:
+    name: Windows x64 Release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Windows SDL dependency pack
+        shell: pwsh
+        run: |
+          $dlls = Get-ChildItem -Path "deps/lib/x64" -Filter "*.dll" -ErrorAction SilentlyContinue
+          $libs = Get-ChildItem -Path "deps/lib/x64" -Filter "*.lib" -ErrorAction SilentlyContinue
+          if (-not $dlls -or -not $libs -or -not (Test-Path "deps/include/SDL/SDL.h")) {
+            Write-Host "Vendored deps/lib/x64 is missing. Downloading the official OXCE Windows dependency pack."
+            $zip = "openxcom-deps-win-vc2017.zip"
+            Invoke-WebRequest -Uri "https://openxcom.org/download/dev/openxcom-deps-win-vc2017.zip" -OutFile $zip
+            Expand-Archive -Path $zip -DestinationPath "openxcom-deps"
+            $src = Get-ChildItem -Path "openxcom-deps" -Recurse -Directory -Filter "deps" | Select-Object -First 1
+            if (-not $src) { throw "Dependency zip did not contain a deps directory." }
+            Copy-Item -Recurse -Force -Path (Join-Path $src.FullName "*") -Destination "deps"
+          }
+          Get-ChildItem "deps/lib/x64" | Select-Object Name, Length
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Compile source (x64 Release)
+        env:
+          VC_FLAGS: /v:minimal /m /p:BuildInParallel=true /p:PreferredToolArchitecture=x64 /p:Configuration=Release /p:Platform=x64
+        run: |
+          cd src
+          msbuild OpenXcom.2010.sln ${{ env.VC_FLAGS }}
+
+      - name: Pack exe and DLLs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Path "dist" | Out-Null
+          if (-not (Test-Path "bin\x64\Release\OpenXcom.exe")) {
+            throw "bin\x64\Release\OpenXcom.exe was not produced."
+          }
+          Copy-Item "bin\x64\Release\OpenXcom.exe" "dist\"
+          $sdlDlls = Get-ChildItem "bin\x64\*.dll" -ErrorAction SilentlyContinue
+          if (-not $sdlDlls) { throw "No DLLs in bin\x64. The post-build copy from deps\lib\x64 did not run." }
+          Copy-Item "bin\x64\*.dll" "dist\"
+          Copy-Item "LICENSE.txt" "dist\"
+
+          # App-local MSVC CRT so the exe starts on a machine without the VC++ redistributable.
+          # VS 18 has a v145 directory next to the numeric 14.x redist folders; that
+          # alias has no x64 child, so search for the CRT DLL instead of sorting names.
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $crtDll = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find "VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT\vcruntime140.dll" | Sort-Object | Select-Object -Last 1
+          if (-not $crtDll) { throw "MSVC x64 vcruntime140.dll was not found via vswhere." }
+          $crtDir = Split-Path -Parent $crtDll
+          Copy-Item (Join-Path $crtDir "*.dll") "dist\"
+          Write-Host "CRT DLLs from $crtDir"
+
+          $readme = @(
+            "OXCE 8.7.1 + Bronze & Iron starting-camera patch"
+            "================================================"
+            ""
+            "64-bit Windows OpenXcom.exe built from OpenXcom Extended 8.7.1"
+            "(v2026-09-19) plus optional globe ruleset keys startingLon,"
+            "startingLat, and startingZoom."
+            ""
+            "The executable reports:"
+            "  Extended 8.7.1 (v2026-09-19 + bronze-iron-camera)"
+            ""
+            "License: GNU GPL v3 or later. See LICENSE.txt."
+            "Source: https://github.com/KaosTipper/OpenXcom branch bronze-iron"
+            ""
+            "Install"
+            "-------"
+            "This zip does not include X-COM data files (UFO / TFTD) or the"
+            "OXCE common/standard data folders."
+            ""
+            "1. In an existing OXCE 8.7.1 64-bit Windows install, rename"
+            "   OpenXcom.exe to OpenXcom-8.7.1-stock.exe."
+            "2. Copy this OpenXcom.exe into that folder."
+            "3. Leave the DLLs and data folders already in that install in place."
+            "4. Enable Bronze & Iron v1.3.0 and start a new campaign."
+            ""
+            "The DLLs in this zip are the SDL 1.2 / SDL_mixer / SDL_image /"
+            "SDL_gfx stack (and their dependencies) from the OXCE Windows"
+            "dependency pack, plus the Visual C++ runtime DLLs this build"
+            "links. Copy those DLLs too only if the destination folder does"
+            "not already have the matching 64-bit OXCE DLLs."
+          ) -join "`r`n"
+          Set-Content -Encoding utf8 -Path "dist\README.txt" -Value $readme
+
+          Get-ChildItem "dist" | Sort-Object Name | Format-Table Name, Length -AutoSize
+          Compress-Archive -Path "dist\*" -DestinationPath "oxce-bronze-iron-win64.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oxce-bronze-iron-win64
+          path: oxce-bronze-iron-win64.zip
+          if-no-files-found: error
