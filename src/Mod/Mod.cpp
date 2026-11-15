@@ -4016,6 +4016,28 @@ SavedGame *Mod::newSave(GameDifficulty diff) const
 	save->getAlienStrategy().init(this);
 	save->setTime(_startingTime);
 
+	// Apply globe.startingLon/Lat/Zoom only when the starting base has no
+	// pre-placed location (Base::getMarker() is -1 at lon=0,lat=0). Must run
+	// before GeoscapeState/Globe is constructed; Globe reads the camera from
+	// the SavedGame in its constructor.
+	if (base->getMarker() == -1)
+	{
+		if (_globe->hasStartingLonLat())
+		{
+			save->setGlobeLongitude(_globe->getStartingLon());
+			save->setGlobeLatitude(_globe->getStartingLat());
+		}
+		if (_globe->hasStartingZoom())
+		{
+			// Globe::setupRadii defines 6 radii (indices 0-5); zoom 0 is
+			// the most zoomed out, 2 is two steps in.
+			int z = _globe->getStartingZoom();
+			if (z < 0) z = 0;
+			if (z > 5) z = 5;
+			save->setGlobeZoom(z);
+		}
+	}
+
 	return save;
 }
 

@@ -40,6 +40,9 @@ private:
 	std::list<Polygon*> _polygons;
 	std::list<Polyline*> _polylines;
 	std::map<int, Texture*> _textures;
+	bool _hasStartingLonLat, _hasStartingZoom;
+	double _startingLon, _startingLat; // radians
+	int _startingZoom;
 public:
 	/// Creates a blank globe ruleset.
 	RuleGlobe();
@@ -57,6 +60,13 @@ public:
 	Texture *getTexture(int id) const;
 	/// Gets all the terrains for a specific deployment.
 	std::vector<std::string> getTerrains(const std::string &deployment) const;
+
+	/// New-game camera from globe.startingLon/Lat/Zoom (optional).
+	bool hasStartingLonLat() const { return _hasStartingLonLat; }
+	bool hasStartingZoom() const { return _hasStartingZoom; }
+	double getStartingLon() const { return _startingLon; }
+	double getStartingLat() const { return _startingLat; }
+	int getStartingZoom() const { return _startingZoom; }
 
 	/// Raw data.
 	const std::map<int, Texture*> &getTexturesRaw() const { return _textures; }
