@@ -81,37 +81,38 @@ jobs:
           Copy-Item (Join-Path $crt.FullName "*.dll") "dist\"
           Write-Host "CRT DLLs from $($crt.FullName)"
 
-          @"
-OXCE 8.7.1 + Bronze & Iron starting-camera patch
-================================================
-
-64-bit Windows OpenXcom.exe built from OpenXcom Extended 8.7.1
-(v2026-09-19) plus optional globe ruleset keys startingLon,
-startingLat, and startingZoom.
-
-The executable reports:
-  Extended 8.7.1 (v2026-09-19 + bronze-iron-camera)
-
-License: GNU GPL v3 or later. See LICENSE.txt.
-Source: https://github.com/KaosTipper/OpenXcom branch bronze-iron
-
-Install
--------
-This zip does not include X-COM data files (UFO / TFTD) or the
-OXCE common/standard data folders.
-
-1. In an existing OXCE 8.7.1 64-bit Windows install, rename
-   OpenXcom.exe to OpenXcom-8.7.1-stock.exe.
-2. Copy this OpenXcom.exe into that folder.
-3. Leave the DLLs and data folders already in that install in place.
-4. Enable Bronze & Iron v1.3.0 and start a new campaign.
-
-The DLLs in this zip are the SDL 1.2 / SDL_mixer / SDL_image /
-SDL_gfx stack (and their dependencies) from the OXCE Windows
-dependency pack, plus the Visual C++ runtime DLLs this build
-links. Copy those DLLs too only if the destination folder does
-not already have the matching 64-bit OXCE DLLs.
-"@ | Set-Content -Encoding utf8 "dist\README.txt"
+          $readme = @(
+            "OXCE 8.7.1 + Bronze & Iron starting-camera patch"
+            "================================================"
+            ""
+            "64-bit Windows OpenXcom.exe built from OpenXcom Extended 8.7.1"
+            "(v2026-09-19) plus optional globe ruleset keys startingLon,"
+            "startingLat, and startingZoom."
+            ""
+            "The executable reports:"
+            "  Extended 8.7.1 (v2026-09-19 + bronze-iron-camera)"
+            ""
+            "License: GNU GPL v3 or later. See LICENSE.txt."
+            "Source: https://github.com/KaosTipper/OpenXcom branch bronze-iron"
+            ""
+            "Install"
+            "-------"
+            "This zip does not include X-COM data files (UFO / TFTD) or the"
+            "OXCE common/standard data folders."
+            ""
+            "1. In an existing OXCE 8.7.1 64-bit Windows install, rename"
+            "   OpenXcom.exe to OpenXcom-8.7.1-stock.exe."
+            "2. Copy this OpenXcom.exe into that folder."
+            "3. Leave the DLLs and data folders already in that install in place."
+            "4. Enable Bronze & Iron v1.3.0 and start a new campaign."
+            ""
+            "The DLLs in this zip are the SDL 1.2 / SDL_mixer / SDL_image /"
+            "SDL_gfx stack (and their dependencies) from the OXCE Windows"
+            "dependency pack, plus the Visual C++ runtime DLLs this build"
+            "links. Copy those DLLs too only if the destination folder does"
+            "not already have the matching 64-bit OXCE DLLs."
+          ) -join "`r`n"
+          Set-Content -Encoding utf8 -Path "dist\README.txt" -Value $readme
 
           Get-ChildItem "dist" | Sort-Object Name | Format-Table Name, Length -AutoSize
           Compress-Archive -Path "dist\*" -DestinationPath "oxce-bronze-iron-win64.zip"
