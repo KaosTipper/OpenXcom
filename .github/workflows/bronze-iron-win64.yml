@@ -71,15 +71,14 @@ jobs:
           Copy-Item "LICENSE.txt" "dist\"
 
           # App-local MSVC CRT so the exe starts on a machine without the VC++ redistributable.
+          # VS 18 has a v145 directory next to the numeric 14.x redist folders; that
+          # alias has no x64 child, so search for the CRT DLL instead of sorting names.
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          if (-not $vs) { throw "Visual Studio installation not found." }
-          $crtRoot = Get-ChildItem -Path (Join-Path $vs "VC\Redist\MSVC") -Directory | Sort-Object Name -Descending | Select-Object -First 1
-          if (-not $crtRoot) { throw "MSVC redistributable directory not found under $vs" }
-          $crt = Get-ChildItem -Path (Join-Path $crtRoot.FullName "x64") -Directory -Filter "Microsoft.VC*.CRT" | Select-Object -First 1
-          if (-not $crt) { throw "MSVC x64 CRT directory not found under $($crtRoot.FullName)" }
-          Copy-Item (Join-Path $crt.FullName "*.dll") "dist\"
-          Write-Host "CRT DLLs from $($crt.FullName)"
+          $crtDll = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find "VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT\vcruntime140.dll" | Sort-Object | Select-Object -Last 1
+          if (-not $crtDll) { throw "MSVC x64 vcruntime140.dll was not found via vswhere." }
+          $crtDir = Split-Path -Parent $crtDll
+          Copy-Item (Join-Path $crtDir "*.dll") "dist\"
+          Write-Host "CRT DLLs from $crtDir"
 
           $readme = @(
             "OXCE 8.7.1 + Bronze & Iron starting-camera patch"
